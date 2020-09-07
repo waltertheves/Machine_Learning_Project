@@ -1,0 +1,100 @@
+---
+title: "Practical Machine Learning Project"
+author: "Walter Breno Theves"
+date: "06/09/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Executive Summary
+
+### Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
+
+More information is available at  <http://groupware.les.inf.puc-rio.br/har#ixzz6XJnCqixX>
+
+## Getting, Cleaning and Preparing the Data
+
+```{r libraries}
+# libraries needed to run the code
+library(caret)
+library(randomForest)
+```
+
+The first step of the process is to download and read the data.
+
+```{r downloading and reading data}
+URLtraining <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+URLtesting <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+setwd("C:/Users/Teste/Desktop/Projects/Project_MachineLearning")
+# download.file(URLtraining, "training_data")
+# download.file(URLtesting, "testing_data")
+training <- read.csv("training_data")
+testing <- read.csv("testing_data")
+```
+
+The first columns are information used to identify characteristics of the subject that hold no information regarding the actual exercise, so they will be excluded.
+Columns that hold too many NA values will also be excluded.
+
+```{r cleaning data}
+excluded_col <- grep("name|timestamp|window|X", colnames(training), value=FALSE)
+training <- training[,-excluded_col]
+testing <- testing[,-excluded_col]
+# Columns with no or NA values will also be excluded
+training[training==""] <- NA
+testing[testing==""] <- NA
+excluded_col <- colSums(is.na(training))/nrow(training)
+NAs <- names(excluded_col[excluded_col > 0.75]) # names of the columns with NAs
+NACols <- which(excluded_col > 0.75) # index of the NA columns
+training <- training[,-NACols]
+testing <- testing[,-NACols]
+# Now the datasets are clean
+```
+
+In order to apply *Cross Validation* to the dataset, the training dataset will be splitted in two parts.
+
+```{r splitting of the dataset}
+set.seed(1000)
+InTrain <- createDataPartition(y=training$classe, p=0.75, list=FALSE)
+training_train <- training[InTrain,]
+training_test <- training[-InTrain,]
+```
+
+```{r classe column into factor}
+# Transforming classe column into factor
+training_train[,"classe"] <- as.factor(training_train[,"classe"])
+training_test[,"classe"] <- as.factor(training_test[,"classe"])
+```
+
+Now the dataset is ready to the actual machine learning algorithm.
+
+## Machine Learning Algorithm
+
+#### Training the model
+
+The ML Algorithm used to train the model is the `randomforest` one.
+
+```{r model}
+model <- randomForest(classe ~. , data=training_train, method="class")
+prediction <- predict(model, training_test, type = "class")
+confusionMatrix(prediction, training_test$classe)
+```
+
+The accuracy achieved with the model is of *99.27%* and the out of sample error is of *0.0073*.
+
+#### Applying the model to the train dataset
+
+```{r prediction testing}
+result <- predict(model, testing)
+
+# Classifications of the test data set:
+result
+```
+
+
